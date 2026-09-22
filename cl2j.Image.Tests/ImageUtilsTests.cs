@@ -213,6 +213,33 @@ namespace cl2j.Image.Tests
             Assert.Null(ImageUtils.NommerUnFormatNonSupporte(null!));
         }
 
+        [Fact]
+        public void ReadImage_says_why_it_could_not_read()
+        {
+            //What the silence cost: fifteen months of missing thumbnails where the caller knew it
+            //had failed and no one knew the decoder simply does not read HEIC.
+            Assert.Null(ImageUtils.ReadImage(BoiteIsoBmff("heic"), out var heic));
+            Assert.Contains("HEIC", heic);
+
+            Assert.Null(ImageUtils.ReadImage([1, 2, 3, 4, 5], out var garbage));
+            Assert.False(string.IsNullOrWhiteSpace(garbage));
+
+            Assert.Null(ImageUtils.ReadImage([], out var empty));
+            Assert.Equal("empty", empty);
+
+            Assert.Null(ImageUtils.ReadImage(null!, out var none));
+            Assert.Equal("no bytes", none);
+        }
+
+        [Fact]
+        public void ReadImage_says_nothing_when_it_reads()
+        {
+            using var image = ImageUtils.ReadImage(Jpeg(64, 48), out var failure);
+
+            Assert.NotNull(image);
+            Assert.Null(failure);
+        }
+
         private static byte[] BoiteIsoBmff(string marque)
         {
             // Four bytes of size, the `ftyp` tag, then the brand: the header of an ISO-BMFF

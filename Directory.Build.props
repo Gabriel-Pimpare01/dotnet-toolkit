@@ -184,8 +184,14 @@
          cl2j.DataStore.Database-deprecated. That change removes a package from the set and alters
          nothing inside the twelve that remain, so republishing them under a new number would say
          a version happened when none did. The publish that follows it pushes nothing, and the
-         skip-duplicate flag on the push makes that silent rather than a failure. -->
-    <Version>5.2.1</Version>
+         skip-duplicate flag on the push makes that silent rather than a failure.
+
+         5.3.0 is a minor bump: it adds API rather than changing any — a `ReadImage` overload that
+         hands back why a read failed, and a `CreateIfMissing` setting on the Azure blob provider.
+         What does change is behaviour, and it changes on purpose: that provider now refuses a
+         container that is not there instead of creating it. A consumer that relied on the creation
+         sets the new flag. -->
+    <Version>5.3.0</Version>
     <Authors>CL2J Technologies</Authors>
     <Company>CL2J Technologies</Company>
     <RepositoryUrl>https://github.com/CL2J-Technologies/dotnet-toolkit</RepositoryUrl>

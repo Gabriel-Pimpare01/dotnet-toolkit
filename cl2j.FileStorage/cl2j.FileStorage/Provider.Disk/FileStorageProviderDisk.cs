@@ -74,7 +74,14 @@ namespace cl2j.FileStorage.Provider.Disk
             //process killed mid-write can leave one behind. It must never pass for data in the eyes
             //of a caller scanning the folder.
             var list = Directory.GetFiles(fullName).Where(n => !n.EndsWith(TemporarySuffix, StringComparison.Ordinal));
-            return list.Select(n => n[(fullName.Length + 1)..]);
+
+            //Names come from the path itself, not from cutting the prefix off. The cut assumed the
+            //root ended without a separator, which `Path.Combine` does not guarantee: a path given
+            //as "t/" produced "C:\root\t\", one character longer than the cut expected, and every
+            //name lost its first character — "1.jpg" listed as ".jpg". Seen September 4th 2026
+            //against a local media folder; production runs on Azure, where the other provider
+            //builds its names differently, so nothing ever caught it.
+            return list.Select(Path.GetFileName);
         }
 
         public async Task<IEnumerable<string>> ListFoldersAsync(string path)
@@ -85,8 +92,11 @@ namespace cl2j.FileStorage.Provider.Disk
             if (!Directory.Exists(fullName))
                 return [];
 
+            //Same cut, same defect: a folder listed from "t/" lost its first character too.
+            //`GetFileName` names a directory as well, as long as the path carries no trailing
+            //separator — which `GetDirectories` never returns.
             var list = Directory.GetDirectories(fullName);
-            return list.Select(n => n[(fullName.Length + 1)..]);
+            return list.Select(Path.GetFileName);
         }
 
         public async Task<bool> ReadAsync(string name, Stream stream)

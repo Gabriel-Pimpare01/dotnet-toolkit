@@ -81,7 +81,35 @@ namespace cl2j.FileStorage.Tests
 
             var files = await Provider.ListFilesAsync(folder);
 
-            Assert.Equal(2, files.Count());
+            //The count alone let a real defect through: the disk provider cut the root off each
+            //path by length, and every name came back missing its first character. Counting two
+            //files said nothing about ".txt" standing where "one.txt" was expected.
+            Assert.Equal(["one.txt", "two.txt"], files.OrderBy(n => n, StringComparer.Ordinal));
+        }
+
+        [Fact]
+        public async Task A_listing_names_the_files_the_same_way_when_the_folder_ends_with_a_separator()
+        {
+            var folder = Folder(nameof(A_listing_names_the_files_the_same_way_when_the_folder_ends_with_a_separator));
+
+            await Provider.WriteTextAsync($"{folder}/one.txt", "1");
+
+            //A caller is free to hand in "folder/". The disk provider used to build a root ending
+            //with a separator from it, which threw its name cutting off by one.
+            Assert.Equal(["one.txt"], await Provider.ListFilesAsync($"{folder}/"));
+        }
+
+        [Fact]
+        public async Task A_listing_names_the_folders_that_are_there()
+        {
+            var folder = Folder(nameof(A_listing_names_the_folders_that_are_there));
+
+            await Provider.WriteTextAsync($"{folder}/first/file.txt", "1");
+            await Provider.WriteTextAsync($"{folder}/second/file.txt", "2");
+
+            var folders = await Provider.ListFoldersAsync(folder);
+
+            Assert.Equal(["first", "second"], folders.OrderBy(n => n, StringComparer.Ordinal));
         }
 
         [Fact]

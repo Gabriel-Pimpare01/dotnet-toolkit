@@ -494,17 +494,48 @@ namespace cl2j.Image
             }
         }
 
-        public static ImageRgba32? ReadImage(byte[] bytes)
+        public static ImageRgba32? ReadImage(byte[] bytes) => ReadImage(bytes, out _);
+
+        /// <summary>
+        /// Reads an image, and says in `failure` why it could not. `null` image with a non-null
+        /// `failure`; a read that works leaves `failure` null.
+        ///
+        /// **Why the reason is handed back rather than logged.** This assembly takes no logger,
+        /// and a caller that knows the file name writes a better line than one that only has the
+        /// bytes. The overload without the parameter keeps working for callers that do not care.
+        ///
+        /// **What it cost not to have it.** The parameterless read swallowed every exception to
+        /// return `null`. The portal produced no thumbnail at all for fifteen months: callers knew
+        /// they had failed, no one knew why, and the cause — a decoder that does not read HEIC —
+        /// was only found by sniffing the bytes by hand. The reason therefore names the format
+        /// when the signature is one this decoder is known not to read.
+        /// </summary>
+        public static ImageRgba32? ReadImage(byte[] bytes, out string? failure)
         {
+            failure = null;
+
             if (bytes == null)
+            {
+                failure = "no bytes";
                 return null;
+            }
+
+            if (bytes.Length == 0)
+            {
+                failure = "empty";
+                return null;
+            }
 
             try
             {
                 return ISImage.Load<Rgba32>(bytes);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                var format = NommerUnFormatNonSupporte(bytes);
+                failure = format == null
+                    ? $"{ex.GetType().Name}: {ex.Message}"
+                    : $"{format}, which this decoder does not read ({ex.GetType().Name})";
                 return null;
             }
         }

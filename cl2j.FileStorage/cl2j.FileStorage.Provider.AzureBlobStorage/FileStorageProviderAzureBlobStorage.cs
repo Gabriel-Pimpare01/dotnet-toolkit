@@ -20,18 +20,27 @@ namespace cl2j.FileStorage.Provider.AzureBlobStorage
             configuration.Bind(settings);
 
             if (string.IsNullOrEmpty(settings.Container))
-                throw new NotFoundException("FileStorageProviderDisk: ContainerName configuration not defined.");
+                throw new NotFoundException("FileStorageProviderAzureBlobStorage: Container configuration not defined.");
 
-            try
-            {
-                container = new BlobContainerClient(settings.ConnectionString, settings.Container);
-                container.CreateIfNotExists();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"{providerName} -> Container '{settings.Container}'");
-                Console.WriteLine(ex.ToString());
-            }
+            var client = new BlobContainerClient(settings.ConnectionString, settings.Container);
+
+            //A container that is not there is a configuration error until someone says otherwise.
+            //
+            //This used to call `CreateIfNotExists`, so a misspelled name created a container of
+            //that name and everything written went there: nothing failed, nothing said anything,
+            //and the data sat where no one would look for it. Verified September 4th 2026 — a
+            //write to "conteneur-qui-nexiste-pas" succeeded, container and all.
+            //
+            //`CreateIfMissing` keeps the old behaviour for whoever wants it — bootstrapping a new
+            //environment, a test run against a throwaway account — but it now has to be asked for.
+            if (settings.CreateIfMissing)
+                client.CreateIfNotExists();
+            else if (!client.Exists())
+                throw new NotFoundException(
+                    $"FileStorageProviderAzureBlobStorage '{providerName}': container '{settings.Container}' does not exist. "
+                    + "Create it, or set CreateIfMissing to true for this provider.");
+
+            container = client;
         }
 
         public string Name { get; set; } = null!;
