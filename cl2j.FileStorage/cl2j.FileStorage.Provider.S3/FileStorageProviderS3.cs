@@ -147,21 +147,39 @@ namespace cl2j.FileStorage.Provider.S3
 
         public async Task WriteAsync(string name, Stream stream, string? contentType = null)
         {
-            var request = new PutObjectRequest
+            // The SDK signs the payload, which means reading the stream twice — once to hash it and
+            // once to send it. A forward-only stream cannot serve that, so it is buffered here
+            // rather than handed over. Turning payload signing off instead looks like the smaller
+            // change and is not one: the SDK then requires HTTPS, which rules out every endpoint
+            // reached over plain HTTP — a self-hosted service, and the container these tests run
+            // against.
+            var payload = stream;
+            MemoryStream? buffered = null;
+            if (!stream.CanSeek)
             {
-                BucketName = bucket,
-                Key = name,
-                InputStream = stream,
+                buffered = new MemoryStream();
+                await stream.CopyToAsync(buffered);
+                buffered.Seek(0, SeekOrigin.Begin);
+                payload = buffered;
+            }
 
-                // The SDK computes a checksum by reading the stream twice, which a forward-only
-                // stream cannot serve. Disabling it costs the integrity check on the wire, which
-                // TLS already covers, and buys the ability to write whatever the caller hands over.
-                DisablePayloadSigning = true
-            };
-            if (contentType != null)
-                request.ContentType = contentType;
+            try
+            {
+                var request = new PutObjectRequest
+                {
+                    BucketName = bucket,
+                    Key = name,
+                    InputStream = payload
+                };
+                if (contentType != null)
+                    request.ContentType = contentType;
 
-            await Client.PutObjectAsync(request);
+                await Client.PutObjectAsync(request);
+            }
+            finally
+            {
+                buffered?.Dispose();
+            }
 
             // Rewound for the caller, the same way the Azure Blob provider leaves it: a caller that
             // writes the same stream to two providers should not have to know which one moved it.

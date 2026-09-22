@@ -15,20 +15,20 @@ namespace cl2j.FileStorage.S3.IntegrationTests
     ///     names, so sharing one between runs would let a leftover object decide a later result.
     ///     </para>
     /// </summary>
-    [Collection(MinioCollection.Name)]
+    [Collection(LocalStackCollection.Name)]
     public sealed class S3FileStorageProviderTests : FileStorageProviderContract
     {
         private readonly FileStorageProviderS3 provider;
 
-        public S3FileStorageProviderTests(MinioFixture minio)
+        public S3FileStorageProviderTests(LocalStackFixture localstack)
         {
             var configuration = new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["S3:Bucket"] = "contract-" + Guid.NewGuid().ToString("N")[..12],
-                    ["S3:AccessKey"] = minio.AccessKey,
-                    ["S3:SecretKey"] = minio.SecretKey,
-                    ["S3:ServiceUrl"] = minio.ServiceUrl,
+                    ["S3:AccessKey"] = localstack.AccessKey,
+                    ["S3:SecretKey"] = localstack.SecretKey,
+                    ["S3:ServiceUrl"] = localstack.ServiceUrl,
                     ["S3:CreateIfMissing"] = "true"
                 })
                 .Build();
@@ -43,8 +43,8 @@ namespace cl2j.FileStorage.S3.IntegrationTests
     /// <summary>
     ///     What the contract does not cover, because it is specific to object storage.
     /// </summary>
-    [Collection(MinioCollection.Name)]
-    public sealed class S3ProviderBehaviourTests(MinioFixture minio)
+    [Collection(LocalStackCollection.Name)]
+    public sealed class S3ProviderBehaviourTests(LocalStackFixture localstack)
     {
         private FileStorageProviderS3 Provider(bool createIfMissing = true, string? bucket = null)
         {
@@ -52,9 +52,9 @@ namespace cl2j.FileStorage.S3.IntegrationTests
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["S3:Bucket"] = bucket ?? "behaviour-" + Guid.NewGuid().ToString("N")[..12],
-                    ["S3:AccessKey"] = minio.AccessKey,
-                    ["S3:SecretKey"] = minio.SecretKey,
-                    ["S3:ServiceUrl"] = minio.ServiceUrl,
+                    ["S3:AccessKey"] = localstack.AccessKey,
+                    ["S3:SecretKey"] = localstack.SecretKey,
+                    ["S3:ServiceUrl"] = localstack.ServiceUrl,
                     ["S3:CreateIfMissing"] = createIfMissing ? "true" : "false"
                 })
                 .Build();
