@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>cl2j.FileStorage.Provider.S3</PackageId>
+    <Description>S3-compatible object storage provider for cl2j.FileStorage. Works with Amazon S3, Cloudflare R2, MinIO and other implementations of the S3 API.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\readme.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" Version="4.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\cl2j.FileStorage\cl2j.FileStorage.csproj" />
+  </ItemGroup>
+</Project>

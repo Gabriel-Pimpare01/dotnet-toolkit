@@ -4,6 +4,7 @@ Providers supported:
 
 - `FileStorageProviderDisk` provider for Local file system
 - `FileStorageProviderAzureBlobStorage` provider for Azure Blob Storage
+- `FileStorageProviderS3` provider for S3-compatible object storage (Amazon S3, Cloudflare R2, MinIO)
 
 # Getting started
 
@@ -178,6 +179,62 @@ Add an entry in the appsetttings.json as follow:
 }
 ```
 
+# S3-compatible object storage
+
+Works with Amazon S3 and with anything that speaks the same API — Cloudflare R2, MinIO, Backblaze B2.
+
+```powershell
+Install-Package cl2j.FileStorage.Provider.S3
+```
+
+```cs
+services.AddS3FileStorage();
+```
+
+For Amazon S3, name the region:
+
+```json
+"cl2j": {
+  "FileStorage": {
+    "Storages": {
+      "Medias": {
+        "Type": "S3",
+        "Bucket": "<YourBucket>",
+        "AccessKey": "<YourAccessKey>",
+        "SecretKey": "<YourSecretKey>",
+        "Region": "us-east-1"
+      }
+    }
+  }
+}
+```
+
+For every other implementation, give the endpoint instead of the region:
+
+```json
+"ServiceUrl": "https://<AccountId>.r2.cloudflarestorage.com"
+```
+
+| Setting | Default | |
+| --- | --- | --- |
+| `Bucket` | — | Required. |
+| `AccessKey`, `SecretKey` | — | Both required. |
+| `ServiceUrl` | — | The endpoint, for an implementation that is not Amazon's. |
+| `Region` | — | The AWS region. Ignored when `ServiceUrl` is set. |
+| `ForcePathStyle` | `true` | Addresses objects as `endpoint/bucket/key`. Required by MinIO and most self-hosted implementations; accepted by R2. |
+| `CreateIfMissing` | `false` | Creates the bucket when it is not there. Off by default: a missing bucket is nearly always a name spelled wrong, and creating it hides the mistake behind data written where no one will look. |
+
+## Two things to know before choosing it
+
+**`AppendAsync` reads, concatenates, and writes the whole object back**, because S3 has no append.
+The cost of appending therefore grows with the size of what is already there, and two overlapping
+appends leave only one of them with no error anywhere. Azure Blob has a real append block and does
+not have either problem — worth knowing when deciding where a log goes.
+
+**Listings are grouped on `/`**, so `ListFilesAsync` returns what sits directly under a prefix
+rather than everything beneath it, the same way the other providers behave. Object storage itself
+is flat: a key containing slashes only looks like a path.
+
 # Feedback & Community
 
 We look forward to hearing your comments.
@@ -191,7 +248,7 @@ If you have a technical question or issue, please either:
 
 # Roadmap
 
-We expect to add `Amazon S3` and `Google Cloud Storage` in the coming months.
+We expect to add `Google Cloud Storage` in the coming months.
 
 We will also like to add:
 

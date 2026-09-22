@@ -23,6 +23,8 @@
   </Folder>
   <Folder Name="/FileStorage/">
     <Project Path="cl2j.FileStorage/cl2j.FileStorage.Provider.AzureBlobStorage/cl2j.FileStorage.Provider.AzureBlobStorage.csproj" />
+    <Project Path="cl2j.FileStorage/cl2j.FileStorage.Provider.S3/cl2j.FileStorage.Provider.S3.csproj" />
+    <Project Path="cl2j.FileStorage/cl2j.FileStorage.S3.IntegrationTests/cl2j.FileStorage.S3.IntegrationTests.csproj" />
     <Project Path="cl2j.FileStorage/cl2j.FileStorage/cl2j.FileStorage.csproj" />
     <Project Path="cl2j.FileStorage/cl2j.FileStorage.Tests/cl2j.FileStorage.Tests.csproj" />
     <Project Path="cl2j.FileStorage.Disk.Tests/cl2j.FileStorage.Disk.Tests.csproj" />
