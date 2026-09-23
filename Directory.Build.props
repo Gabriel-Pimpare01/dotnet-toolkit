@@ -190,8 +190,13 @@
          hands back why a read failed, and a `CreateIfMissing` setting on the Azure blob provider.
          What does change is behaviour, and it changes on purpose: that provider now refuses a
          container that is not there instead of creating it. A consumer that relied on the creation
-         sets the new flag. -->
-    <Version>5.3.0</Version>
+         sets the new flag.
+
+         5.4.0 is a minor bump for the same reason: it adds a package rather than changing one.
+         cl2j.FileStorage.Provider.S3 stores files as objects in an S3-compatible bucket — Amazon
+         S3, Cloudflare R2, MinIO. Nothing in the twelve packages that were already here changes,
+         so a consumer that does not reference the new one sees no difference. -->
+    <Version>5.4.0</Version>
     <Authors>CL2J Technologies</Authors>
     <Company>CL2J Technologies</Company>
     <RepositoryUrl>https://github.com/CL2J-Technologies/dotnet-toolkit</RepositoryUrl>
