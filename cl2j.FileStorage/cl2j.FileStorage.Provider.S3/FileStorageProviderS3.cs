@@ -153,9 +153,17 @@ namespace cl2j.FileStorage.Provider.S3
             // change and is not one: the SDK then requires HTTPS, which rules out every endpoint
             // reached over plain HTTP — a self-hosted service, and the container these tests run
             // against.
-            var payload = stream;
+            //Wrapped rather than handed over: the SDK disposes the stream it is given, and closing
+            //the caller's stream is a thing the Azure Blob provider does not do. A caller writing
+            //the same content to two providers would otherwise find the second one failing,
+            //depending on the order they were called in.
+            Stream payload;
             MemoryStream? buffered = null;
-            if (!stream.CanSeek)
+            if (stream.CanSeek)
+            {
+                payload = new NonClosingStream(stream);
+            }
+            else
             {
                 buffered = new MemoryStream();
                 await stream.CopyToAsync(buffered);
@@ -179,6 +187,8 @@ namespace cl2j.FileStorage.Provider.S3
             finally
             {
                 buffered?.Dispose();
+                if (buffered is null)
+                    await payload.DisposeAsync();
             }
 
             // Rewound for the caller, the same way the Azure Blob provider leaves it: a caller that
