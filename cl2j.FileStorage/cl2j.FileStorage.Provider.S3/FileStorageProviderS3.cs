@@ -292,7 +292,7 @@ namespace cl2j.FileStorage.Provider.S3
         private static bool IsMissing(AmazonS3Exception ex) =>
             ex.StatusCode == System.Net.HttpStatusCode.NotFound || ex.ErrorCode == "NoSuchKey" || ex.ErrorCode == "NotFound";
 
-        private static bool BucketExists(IAmazonS3 s3, string name)
+        private static bool BucketExists(AmazonS3Client s3, string name)
         {
             try
             {

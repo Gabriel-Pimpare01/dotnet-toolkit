@@ -50,11 +50,11 @@ namespace cl2j.FileStorage.Provider.S3
         public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
             => inner.WriteAsync(buffer, cancellationToken);
 
-        //The whole point: the SDK's dispose stops here instead of reaching the caller's stream.
-        protected override void Dispose(bool disposing)
-        {
-        }
+        //The whole point: the SDK's dispose stops at this wrapper instead of reaching the stream
+        //underneath. The base call is still made — Stream.Dispose(bool) does nothing on its own —
+        //so nothing is skipped beyond the one thing this type exists to skip.
+        protected override void Dispose(bool disposing) => base.Dispose(disposing);
 
-        public override ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public override ValueTask DisposeAsync() => base.DisposeAsync();
     }
 }

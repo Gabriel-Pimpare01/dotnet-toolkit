@@ -43,8 +43,7 @@ namespace cl2j.FileStorage.S3.IntegrationTests
 
         //Pinned rather than floating, for the reason the SQL Server fixture gives: a suite whose
         //server version changes underneath it is a suite whose failures cannot be reproduced.
-        private readonly IContainer container = new ContainerBuilder()
-            .WithImage("adobe/s3mock:5.2.3")
+        private readonly IContainer container = new ContainerBuilder("adobe/s3mock:5.2.3")
             .WithPortBinding(Port, true)
             //The port opens before the service behind it answers, so waiting on the port alone
             //lets the first test race the startup. Any response below 500 means it is serving.
@@ -72,7 +71,7 @@ namespace cl2j.FileStorage.S3.IntegrationTests
     }
 
     [CollectionDefinition(Name)]
-    public sealed class S3MockFixtureCollection : ICollectionFixture<S3MockFixture>
+    public sealed class S3MockCollectionDefinition : ICollectionFixture<S3MockFixture>
     {
         public const string Name = "s3mock";
     }

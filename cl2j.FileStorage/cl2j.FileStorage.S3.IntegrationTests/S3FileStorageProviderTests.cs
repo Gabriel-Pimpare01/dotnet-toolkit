@@ -15,7 +15,7 @@ namespace cl2j.FileStorage.S3.IntegrationTests
     ///     names, so sharing one between runs would let a leftover object decide a later result.
     ///     </para>
     /// </summary>
-    [Collection(S3MockFixtureCollection.Name)]
+    [Collection(S3MockCollectionDefinition.Name)]
     public sealed class S3FileStorageProviderTests : FileStorageProviderContract
     {
         private readonly FileStorageProviderS3 provider;
@@ -43,7 +43,7 @@ namespace cl2j.FileStorage.S3.IntegrationTests
     /// <summary>
     ///     What the contract does not cover, because it is specific to object storage.
     /// </summary>
-    [Collection(S3MockFixtureCollection.Name)]
+    [Collection(S3MockCollectionDefinition.Name)]
     public sealed class S3ProviderBehaviourTests(S3MockFixture s3mock)
     {
         private FileStorageProviderS3 Provider(bool createIfMissing = true, string? bucket = null)
