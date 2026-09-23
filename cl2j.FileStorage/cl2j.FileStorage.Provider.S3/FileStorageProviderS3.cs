@@ -40,7 +40,19 @@ namespace cl2j.FileStorage.Provider.S3
             if (string.IsNullOrEmpty(settings.AccessKey) || string.IsNullOrEmpty(settings.SecretKey))
                 throw new NotFoundException($"FileStorageProviderS3 '{providerName}': AccessKey and SecretKey are both required.");
 
-            var config = new AmazonS3Config { ForcePathStyle = settings.ForcePathStyle };
+            var config = new AmazonS3Config
+            {
+                ForcePathStyle = settings.ForcePathStyle,
+
+                // The SDK computes a checksum for every request by default and sends the body with a
+                // trailing one, which Cloudflare R2 answers with
+                // "STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER not implemented" — every write fails.
+                // Asking for checksums only where the protocol requires them keeps the SDK's default
+                // behaviour on Amazon and makes it work everywhere else. Integrity on the wire is
+                // TLS's job either way.
+                RequestChecksumCalculation = RequestChecksumCalculation.WHEN_REQUIRED,
+                ResponseChecksumValidation = ResponseChecksumValidation.WHEN_REQUIRED
+            };
             if (!string.IsNullOrEmpty(settings.ServiceUrl))
                 config.ServiceURL = settings.ServiceUrl;
             else if (!string.IsNullOrEmpty(settings.Region))
@@ -52,16 +64,23 @@ namespace cl2j.FileStorage.Provider.S3
             // the same rule the Azure Blob provider settled on, and for the same reason: a
             // misspelled name that creates its own bucket writes everything where nobody will look
             // for it, and nothing anywhere says so.
-            if (settings.CreateIfMissing)
+            switch (Reach(s3, settings.Bucket))
             {
-                if (!BucketExists(s3, settings.Bucket))
+                case BucketReach.Refused:
+                    throw new BadRequestException(
+                        $"FileStorageProviderS3 '{providerName}': the credentials cannot reach bucket '{settings.Bucket}'. "
+                        + "A store that refuses to disclose whether a bucket exists answers the same way for a name that is "
+                        + "not there and a name the credentials are not scoped to, so this is either a typo in the bucket "
+                        + "name or a key issued for a different one. Creating it would be refused too.");
+
+                case BucketReach.Missing when !settings.CreateIfMissing:
+                    throw new NotFoundException(
+                        $"FileStorageProviderS3 '{providerName}': bucket '{settings.Bucket}' does not exist. "
+                        + "Create it, or set CreateIfMissing to true for this provider.");
+
+                case BucketReach.Missing:
                     s3.PutBucketAsync(new PutBucketRequest { BucketName = settings.Bucket }).GetAwaiter().GetResult();
-            }
-            else if (!BucketExists(s3, settings.Bucket))
-            {
-                throw new NotFoundException(
-                    $"FileStorageProviderS3 '{providerName}': bucket '{settings.Bucket}' does not exist. "
-                    + "Create it, or set CreateIfMissing to true for this provider.");
+                    break;
             }
 
             bucket = settings.Bucket;
@@ -99,7 +118,10 @@ namespace cl2j.FileStorage.Provider.S3
 
             await EachPage(prefix, page =>
             {
-                foreach (var entry in page.S3Objects)
+                // Version 4 of the SDK leaves the collection null rather than empty when the
+                // response carries no such element, which is what a prefix holding nothing looks
+                // like. Reading it without the guard turns "there is nothing here" into a crash.
+                foreach (var entry in page.S3Objects ?? [])
                 {
                     // The prefix itself comes back as an object when something created it as an
                     // explicit empty marker. It is not a file in the directory it names.
@@ -120,7 +142,7 @@ namespace cl2j.FileStorage.Provider.S3
 
             await EachPage(prefix, page =>
             {
-                foreach (var common in page.CommonPrefixes)
+                foreach (var common in page.CommonPrefixes ?? [])
                 {
                     var name = common[prefix.Length..].TrimEnd('/');
                     if (name.Length > 0)
@@ -177,7 +199,12 @@ namespace cl2j.FileStorage.Provider.S3
                 {
                     BucketName = bucket,
                     Key = name,
-                    InputStream = payload
+                    InputStream = payload,
+
+                    // The other half of the same incompatibility: chunked transfer encoding carries
+                    // the trailer R2 rejects. Sending the body whole costs nothing here, since the
+                    // stream is already buffered or seekable by this point.
+                    UseChunkEncoding = false
                 };
                 if (contentType != null)
                     request.ContentType = contentType;
@@ -292,16 +319,46 @@ namespace cl2j.FileStorage.Provider.S3
         private static bool IsMissing(AmazonS3Exception ex) =>
             ex.StatusCode == System.Net.HttpStatusCode.NotFound || ex.ErrorCode == "NoSuchKey" || ex.ErrorCode == "NotFound";
 
-        private static bool BucketExists(AmazonS3Client s3, string name)
+        private enum BucketReach
+        {
+            /// <summary>The bucket is there and these credentials can use it.</summary>
+            Present,
+
+            /// <summary>The store says the bucket is not there.</summary>
+            Missing,
+
+            /// <summary>The store will not say — see <see cref="Reach"/>.</summary>
+            Refused
+        }
+
+        /// <summary>Whether the bucket can be used, as far as the store is willing to disclose.</summary>
+        /// <remarks>
+        ///     HEAD rather than GetBucketLocation: the latter is a distinct permission that a
+        ///     least-privilege key is not necessarily granted, so it can answer "no such bucket" for
+        ///     one that is there and works. HEAD needs only the listing right, which this provider
+        ///     requires anyway.
+        ///
+        ///     <para>
+        ///     Refusing to disclose is a third answer, not a failure to get one. Cloudflare R2 with
+        ///     a bucket-scoped token, and Amazon S3 with a bucket owned by someone else, both answer
+        ///     403 for a name that is not there rather than 404, precisely so that a stranger cannot
+        ///     enumerate bucket names. Reading that as "it exists" is how a typo gets past startup.
+        ///     </para>
+        /// </remarks>
+        private static BucketReach Reach(AmazonS3Client s3, string name)
         {
             try
             {
-                s3.GetBucketLocationAsync(name).GetAwaiter().GetResult();
-                return true;
+                s3.HeadBucketAsync(new HeadBucketRequest { BucketName = name }).GetAwaiter().GetResult();
+                return BucketReach.Present;
             }
-            catch (AmazonS3Exception ex) when (ex.ErrorCode == "NoSuchBucket" || ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound || ex.ErrorCode == "NoSuchBucket")
             {
-                return false;
+                return BucketReach.Missing;
+            }
+            catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                return BucketReach.Refused;
             }
         }
 

@@ -113,6 +113,23 @@ namespace cl2j.FileStorage.Tests
         }
 
         [Fact]
+        public async Task A_listing_of_a_folder_with_nothing_in_it_is_empty_rather_than_an_error()
+        {
+            var folder = Folder(nameof(A_listing_of_a_folder_with_nothing_in_it_is_empty_rather_than_an_error));
+
+            //Emptied rather than never written: every provider agrees the folder was there, so the
+            //only thing under test is what "nothing left" answers. Version 4 of the AWS SDK leaves
+            //the response collections null instead of empty, which turned this into a
+            //NullReferenceException against a real bucket — housekeeping that deletes and then
+            //lists is exactly where it landed.
+            await Provider.WriteTextAsync($"{folder}/only.txt", "1");
+            await Provider.DeleteAsync($"{folder}/only.txt");
+
+            Assert.Empty(await Provider.ListFilesAsync(folder));
+            Assert.Empty(await Provider.ListFoldersAsync(folder));
+        }
+
+        [Fact]
         public async Task A_deleted_file_is_gone()
         {
             var file = File(nameof(A_deleted_file_is_gone));
