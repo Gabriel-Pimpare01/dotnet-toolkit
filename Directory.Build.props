@@ -223,8 +223,13 @@
          and `MediaHelpers.GetContentTypeFromFileName` names `.webp`. `RasterImage.Bitmap` is
          internal, so a consumer cannot encode WebP itself since 6.0.0 moved off ImageSharp: the
          package has to. SkiaSharp does it natively, no dependency is added. (6.1.0 and 6.2.0 were
-         already taken when this went in, hence the number.) -->
-    <Version>6.3.0</Version>
+         already taken when this went in, hence the number.)
+
+         6.4.0 is a minor bump: it adds API. cl2j.Image gains `ImageUtils.ReadImage(bytes, settings,
+         out failure)` and `ImageUtils.ReadSettings`, whose `ConvertToSrgb` converts a wide-gamut
+         photo to sRGB through its ICC profile, so it keeps its colours once encoded without one.
+         It is off by default: every existing overload reads exactly as 6.3.0 did, pixels included. -->
+    <Version>6.4.0</Version>
         
   
     <Authors>CL2J Technologies</Authors>

@@ -480,7 +480,29 @@ namespace cl2j.Image
             }
         }
 
+        /// <summary>How `ReadImage` turns the file into pixels. The defaults read it as every version before 6.4.0 did.</summary>
+        public class ReadSettings
+        {
+            /// <summary>
+            /// Converts the pixels to sRGB using the ICC profile the file carries, so they show the
+            /// colours of the photo once encoded again — the encoders of this library write no
+            /// profile. Without it, a Display P3 photo, what a phone shoots, comes out duller: its
+            /// numbers are kept and then shown as sRGB ones. A file without a profile is sRGB
+            /// already and reads the same either way.
+            ///
+            /// **Off by default, on purpose.** Turning it on changes the pixels of every wide-gamut
+            /// photo, and with them the thumbnails and the grey levels `AreImagesIdentical` compares:
+            /// an image stored before and the same image read again would no longer match. A
+            /// consumer opts in when the colours matter more than that continuity.
+            /// </summary>
+            public bool ConvertToSrgb { get; set; }
+        }
+
+        private static readonly ReadSettings AsStored = new();
+
         public static RasterImage? ReadImage(byte[] bytes) => ReadImage(bytes, out _);
+
+        public static RasterImage? ReadImage(byte[] bytes, out string? failure) => ReadImage(bytes, AsStored, out failure);
 
         /// <summary>
         /// Reads an image, and says in `failure` why it could not. `null` image with a non-null
@@ -499,7 +521,7 @@ namespace cl2j.Image
         /// was only found by sniffing the bytes by hand. The reason therefore names the format
         /// when the signature is one this decoder is known not to read.
         /// </summary>
-        public static RasterImage? ReadImage(byte[] bytes, out string? failure)
+        public static RasterImage? ReadImage(byte[] bytes, ReadSettings settings, out string? failure)
         {
             failure = null;
 
@@ -528,7 +550,11 @@ namespace cl2j.Image
                 }
 
                 var bitmap = new SKBitmap(RasterImage.Info(codec.Info.Width, codec.Info.Height));
-                var decoded = codec.GetPixels(bitmap.Info, bitmap.GetPixels());
+                //Asking for sRGB makes the codec convert through the file's profile. The bitmap itself
+                //stays untagged, like every other pixel buffer of this library: what it holds is now sRGB,
+                //which is how an untagged buffer is read everywhere downstream.
+                var target = settings.ConvertToSrgb ? bitmap.Info.WithColorSpace(SKColorSpace.CreateSrgb()) : bitmap.Info;
+                var decoded = codec.GetPixels(target, bitmap.GetPixels());
                 //A truncated file decodes what it has, the rest filled in — what browsers show.
                 if (decoded != SKCodecResult.Success && decoded != SKCodecResult.IncompleteInput)
                 {
